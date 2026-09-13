@@ -17,8 +17,6 @@ body{display:flex;justify-content:center;align-items:center;min-height:100vh;bac
 svg{display:block;width:100%;max-width:360px;margin:0 auto}
 .hint{margin-top:14px;font-size:12px;color:#8b949e;line-height:1.6}
 .state{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;margin-top:8px;transition:all .3s}
-#r-reset:hover ~ #r-reset-visual{filter:brightness(1.5)}
-#r-reset:hover ~ #reset-label{fill:rgba(255,107,107,0.8) !important}
 </style>
 </head>
 <body>
@@ -58,16 +56,10 @@ svg{display:block;width:100%;max-width:360px;margin:0 auto}
     <line id="ref3" stroke="#30363d" stroke-width=".5" stroke-dasharray="4,4"/>
 
     <g id="dots"></g>
-
-    <!-- 右侧直角三角形（展开时出现） -->
-    <polygon id="r-reset" points="" fill="transparent" stroke="none" style="cursor:pointer"/>
-    <polygon id="r-reset-visual" points="" fill="transparent" stroke="none"/>
-    <text id="reset-label" x="0" y="0" font-size="10" fill="transparent" text-anchor="middle" font-family="monospace" style="pointer-events:none">RESET</text>
   </svg>
   <div class="hint">
     点击 <b style="color:#ff6b6b">顶部</b> / <b style="color:#58a6ff">左下</b> / <b style="color:#3fb950">右下</b> 展开 ·
-    点击 <b style="color:#d29922">中间</b> 放大 ·
-    点击右侧 <b style="color:#8b949e">小三角</b> 重置全部
+    点击 <b style="color:#d29922">中间</b> 放大 · 再次点击收回
   </div>
   <div><span id="badge" class="state" style="background:rgba(88,166,255,.1);color:#58a6ff">默认状态</span></div>
 </div>
@@ -317,31 +309,6 @@ svg{display:block;width:100%;max-width:360px;margin:0 auto}
     }
     d+=`<circle cx="${CX}" cy="${CY}" r="2" fill="#58a6ff" opacity=".5"/>`;
     dotsG.innerHTML=d;
-
-    // ─── 右侧直角三角形 ───
-    const anyExpanded=Math.max(topT,leftT,rightT)>0.05 || centerT>0.05;
-    const triPoints=pt(P1g,P2g,P3);
-    if(anyExpanded){
-      const showAlpha=Math.min(1, Math.max(topT,leftT,rightT,centerT)*3);
-      rReset.setAttribute('points',triPoints);
-      rResetVis.setAttribute('points',triPoints);
-      rResetVis.setAttribute('fill',`rgba(139,148,158,${0.06*showAlpha})`);
-      rResetVis.setAttribute('stroke',`rgba(139,148,158,${0.5*showAlpha})`);
-      rResetVis.setAttribute('stroke-width','1.2');
-      rResetVis.setAttribute('stroke-linejoin','round');
-      // RESET 标签居中
-      const lx=(P1g.x+P2g.x+P3.x)/3;
-      const ly=(P1g.y+P2g.y+P3.y)/3;
-      resetLabel.setAttribute('x',lx);
-      resetLabel.setAttribute('y',ly+3);
-      resetLabel.setAttribute('fill',`rgba(139,148,158,${0.5*showAlpha})`);
-    } else {
-      rReset.setAttribute('points','');
-      rResetVis.setAttribute('points','');
-      rResetVis.setAttribute('fill','transparent');
-      rResetVis.setAttribute('stroke','none');
-      resetLabel.setAttribute('fill','transparent');
-    }
 
     // 徽章
     if(isCenter&&centerT>0.05){
