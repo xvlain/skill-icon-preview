@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<script>
+!(function(j,a,g){j.__itrace_conf = {bid: 'f43basl8-6nqu7l3w',rel: '0.0.1', spa: true, uid: '', plugins:['jserror','interface','perf','resource','flow','blank']};var b = a.createElement("script");var d = a.getElementsByTagName("script")[0];b.type = "text/javascript";b.crossorigin = true;b.async = true;b.onload = function(){j.__itrace && j.__itrace.setReady()};d.parentNode.insertBefore(b,d);b.src = g})(window, document, "https://g.alicdn.com/woodpeckerx/itrace-next/itrace.iife.js")
+</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>技能图标 · 交互预览</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{display:flex;justify-content:center;align-items:center;min-height:100vh;background:#0d1117;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;color:#c9d1d9;padding:16px}
+.card{width:100%;max-width:480px;background:#161b22;border:1px solid #30363d;border-radius:16px;padding:24px 20px;text-align:center}
+.title{font-size:15px;font-weight:600;color:#58a6ff;margin-bottom:2px;letter-spacing:.5px}
+.sub{font-size:12px;color:#484f58;margin-bottom:16px}
+svg{display:block;width:100%;max-width:360px;margin:0 auto}
+.hint{margin-top:14px;font-size:12px;color:#8b949e;line-height:1.6}
+.state{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;margin-top:8px;transition:all .3s}
+#r-reset:hover ~ #r-reset-visual{filter:brightness(1.5)}
+#r-reset:hover ~ #reset-label{fill:rgba(255,107,107,0.8) !important}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="title">技能图标 · 交互预览</div>
+  <div class="sub">嵌套正三角形 · 点击四个区域查看展开效果</div>
+  <svg id="cv" viewBox="-50 -80 500 520" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#21262d" stroke-width=".5"/>
+      </pattern>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <rect x="-50" y="-80" width="500" height="520" fill="url(#grid)"/>
+
+    <!-- 四个外围区域 -->
+    <polygon id="r-top"    points="" stroke="none" style="cursor:pointer"/>
+    <polygon id="r-left"   points="" stroke="none" style="cursor:pointer"/>
+    <polygon id="r-right"  points="" stroke="none" style="cursor:pointer"/>
+
+    <!-- 外三角 -->
+    <polygon id="outer" points="" fill="none" stroke="#e6edf3" stroke-width="2" stroke-linejoin="round"/>
+
+    <!-- 中间三角形填充层（放大时遮住外框） -->
+    <polygon id="r-center-fill" points="" stroke="none"/>
+    <!-- 中间三角形描边层 -->
+    <polygon id="r-center" points="" stroke="none" style="cursor:pointer"/>
+    <!-- 内三角描边 -->
+    <polygon id="inner" points="" fill="none" stroke="#58a6ff" stroke-width="1.8" stroke-linejoin="round"/>
+
+    <!-- 参考线 -->
+    <line id="ref1" stroke="#30363d" stroke-width=".5" stroke-dasharray="4,4"/>
+    <line id="ref2" stroke="#30363d" stroke-width=".5" stroke-dasharray="4,4"/>
+    <line id="ref3" stroke="#30363d" stroke-width=".5" stroke-dasharray="4,4"/>
+
+    <g id="dots"></g>
+
+    <!-- 右侧直角三角形（展开时出现） -->
+    <polygon id="r-reset" points="" fill="transparent" stroke="none" style="cursor:pointer"/>
+    <polygon id="r-reset-visual" points="" fill="transparent" stroke="none"/>
+    <text id="reset-label" x="0" y="0" font-size="10" fill="transparent" text-anchor="middle" font-family="monospace" style="pointer-events:none">RESET</text>
+  </svg>
+  <div class="hint">
+    点击 <b style="color:#ff6b6b">顶部</b> / <b style="color:#58a6ff">左下</b> / <b style="color:#3fb950">右下</b> 展开 ·
+    点击 <b style="color:#d29922">中间</b> 放大 ·
+    点击右侧 <b style="color:#8b949e">小三角</b> 重置全部
+  </div>
+  <div><span id="badge" class="state" style="background:rgba(88,166,255,.1);color:#58a6ff">默认状态</span></div>
+</div>
+
+<script>
+(function(){
+  const CX=200,CY=210,SIDE=300,EXP=0.55,MAX_SCALE=2.15;
+  const oH=SIDE*Math.sqrt(3)/2;
+
+  const A={x:CX,y:CY-oH*2/3};
+  const B={x:CX-SIDE/2,y:CY+oH/3};
+  const C={x:CX+SIDE/2,y:CY+oH/3};
+
+  const M1d=mid(A,B), M2d=mid(A,C), M3d=mid(B,C);
+  const iCentroid={x:(M1d.x+M2d.x+M3d.x)/3, y:(M1d.y+M2d.y+M3d.y)/3};
+
+  const colors={top:'#ff6b6b',left:'#58a6ff',right:'#3fb950',center:'#d29922'};
+
+  const expanded={
+    top:   {m1:lerp(M1d,B,EXP), m2:lerp(M2d,C,EXP), m3:lerp(M3d,mid(B,C),EXP)},
+    left:  {m1:lerp(M1d,A,EXP), m2:lerp(M2d,mid(A,C),EXP), m3:lerp(M3d,C,EXP)},
+    right: {m1:lerp(M1d,mid(A,B),EXP), m2:lerp(M2d,A,EXP), m3:lerp(M3d,B,EXP)}
+  };
+
+  let curM1={...M1d},curM2={...M2d},curM3={...M3d};
+  let tgtM1={...M1d},tgtM2={...M2d},tgtM3={...M3d};
+  let curScale=1, tgtScale=1;
+  let active=null, animating=false;
+
+  const outerEl=document.getElementById('outer');
+  const innerEl=document.getElementById('inner');
+  const rTop=document.getElementById('r-top');
+  const rLeft=document.getElementById('r-left');
+  const rRight=document.getElementById('r-right');
+  const rCenter=document.getElementById('r-center');
+  const rCenterFill=document.getElementById('r-center-fill');
+  const badge=document.getElementById('badge');
+  const dotsG=document.getElementById('dots');
+  const ref1=document.getElementById('ref1');
+  const ref2=document.getElementById('ref2');
+  const ref3=document.getElementById('ref3');
+
+  outerEl.setAttribute('points',pt(A,B,C));
+
+  rTop.addEventListener('click',()=>toggleRegion('top'));
+  rLeft.addEventListener('click',()=>toggleRegion('left'));
+  rRight.addEventListener('click',()=>toggleRegion('right'));
+  rCenter.addEventListener('click',toggleCenter);
+
+  // ─── 右侧直角三角形 ───
+  const rReset=document.getElementById('r-reset');
+  const rResetVis=document.getElementById('r-reset-visual');
+  const resetLabel=document.getElementById('reset-label');
+
+  // 外边 AC 方向和法线
+  const acDx=C.x-A.x, acDy=C.y-A.y;
+  const acLen=Math.sqrt(acDx*acDx+acDy*acDy);
+  const acUx=acDx/acLen, acUy=acDy/acLen; // 沿AC单位向量 (0.5, 0.866)
+  const outUx=acUy, outUy=-acUx;           // 朝外法线 (0.866, -0.5)
+
+  // 在AC上取两个点（35%~50%处）
+  const EDGE_T1=0.35, EDGE_T2=0.50;
+  const P1={x:A.x+acDx*EDGE_T1, y:A.y+acDy*EDGE_T1}; // 上点（靠近A）
+  const P2={x:A.x+acDx*EDGE_T2, y:A.y+acDy*EDGE_T2}; // 下点（靠近C）
+
+  // 间隙 + 直角三角形：直角在右上方
+  const GAP=8, DEPTH=80;
+  // P1g, P2g: 沿法线偏移 GAP（底边平行于AC）
+  const P1g={x:P1.x+outUx*GAP, y:P1.y+outUy*GAP};
+  const P2g={x:P2.x+outUx*GAP, y:P2.y+outUy*GAP};
+  // P3: 从P1g向外延伸DEPTH（直角顶点）
+  const P3={x:P1g.x+outUx*DEPTH, y:P1g.y+outUy*DEPTH};
+  // 三角形三顶点: P1g（底-上）, P2g（底-下）, P3（直角-右上）
+  // 直角在 P3：P3→P1g（沿-法线方向）⊥ P3→P2g（沿-AC方向+法线分量）
+
+  rReset.addEventListener('click', resetAll);
+  rReset.addEventListener('mouseenter',()=>{
+    rResetVis.setAttribute('stroke','rgba(255,107,107,0.7)');
+    rResetVis.setAttribute('fill','rgba(255,107,107,0.15)');
+    resetLabel.setAttribute('fill','rgba(255,107,107,0.9)');
+  });
+  rReset.addEventListener('mouseleave',()=>{
+    const a=Math.min(1,Math.max(regionProgress('top'),regionProgress('left'),regionProgress('right'),(curScale-1)/(MAX_SCALE-1))*3);
+    rResetVis.setAttribute('stroke',`rgba(139,148,158,${0.5*a})`);
+    rResetVis.setAttribute('fill',`rgba(139,148,158,${0.06*a})`);
+    resetLabel.setAttribute('fill',`rgba(139,148,158,${0.5*a})`);
+  });
+
+  function resetAll(){
+    active=null;
+    tgtScale=1;
+    tgtM1={...M1d};tgtM2={...M2d};tgtM3={...M3d};
+    if(!animating){animating=true;requestAnimationFrame(tick);}
+  }
+
+  function toggleRegion(region){
+    // 如果当前是中间放大状态，先收回
+    if(active==='center'){
+      tgtScale=1;
+      active=region;
+      const e=expanded[region];
+      tgtM1={...e.m1};tgtM2={...e.m2};tgtM3={...e.m3};
+    } else if(active===region){
+      active=null;
+      tgtM1={...M1d};tgtM2={...M2d};tgtM3={...M3d};
+    } else {
+      active=region;
+      const e=expanded[region];
+      tgtM1={...e.m1};tgtM2={...e.m2};tgtM3={...e.m3};
+    }
+    if(!animating){animating=true;requestAnimationFrame(tick);}
+  }
+
+  function toggleCenter(){
+    if(active==='center'){
+      // 收回
+      active=null;
+      tgtScale=1;
+      tgtM1={...M1d};tgtM2={...M2d};tgtM3={...M3d};
+    } else {
+      // 先收回其他区域，再放大中间
+      active='center';
+      tgtScale=MAX_SCALE;
+      tgtM1={...M1d};tgtM2={...M2d};tgtM3={...M3d};
+    }
+    if(!animating){animating=true;requestAnimationFrame(tick);}
+  }
+
+  function tick(){
+    const ease=0.11;
+    const d1=dist(curM1,tgtM1),d2=dist(curM2,tgtM2),d3=dist(curM3,tgtM3);
+    const ds=Math.abs(curScale-tgtScale);
+
+    if(d1<0.3&&d2<0.3&&d3<0.3&&ds<0.005){
+      curM1={...tgtM1};curM2={...tgtM2};curM3={...tgtM3};
+      curScale=tgtScale;
+      animating=false;
+    } else {
+      curM1=lerpPt(curM1,tgtM1,ease);
+      curM2=lerpPt(curM2,tgtM2,ease);
+      curM3=lerpPt(curM3,tgtM3,ease);
+      curScale+=(tgtScale-curScale)*ease;
+    }
+    render();
+    if(animating) requestAnimationFrame(tick);
+  }
+
+  // 将三角形绕其质心缩放
+  function scaleFromCenter(p1,p2,p3,s){
+    const cx=(p1.x+p2.x+p3.x)/3, cy=(p1.y+p2.y+p3.y)/3;
+    return {
+      v1:{x:cx+(p1.x-cx)*s, y:cy+(p1.y-cy)*s},
+      v2:{x:cx+(p2.x-cx)*s, y:cy+(p2.y-cy)*s},
+      v3:{x:cx+(p3.x-cx)*s, y:cy+(p3.y-cy)*s}
+    };
+  }
+
+  function render(){
+    const m1=curM1,m2=curM2,m3=curM3;
+    const isCenter=active==='center';
+
+    // 外围区域
+    rTop.setAttribute('points',pt(A,m1,m2));
+    rLeft.setAttribute('points',pt(B,m1,m3));
+    rRight.setAttribute('points',pt(C,m2,m3));
+
+    // 缩放后的中间三角形
+    const scaled=scaleFromCenter(m1,m2,m3,curScale);
+
+    // 中间区域（点击热区用缩放后的位置）
+    rCenter.setAttribute('points',pt(scaled.v1,scaled.v3,scaled.v2));
+
+    // 内三角描边
+    if(isCenter && curScale>1.01){
+      // 放大时内三角也缩放
+      innerEl.setAttribute('points',pt(scaled.v1,scaled.v3,scaled.v2));
+    } else {
+      innerEl.setAttribute('points',pt(m1,m3,m2));
+    }
+
+    // 区域着色
+    const topT=regionProgress('top');
+    const leftT=regionProgress('left');
+    const rightT=regionProgress('right');
+    const centerT=(curScale-1)/(MAX_SCALE-1);
+
+    const regionEls={top:[rTop,topT],left:[rLeft,leftT],right:[rRight,rightT]};
+    for(const[key,[el,t]]of Object.entries(regionEls)){
+      const rgb=hexRgb(colors[key]);
+      if(t>0.01){
+        el.setAttribute('fill',`rgba(${rgb},${0.04+t*0.14})`);
+        el.setAttribute('stroke',`rgba(${rgb},${t*0.4})`);
+        el.setAttribute('stroke-width','1');
+      } else {
+        el.setAttribute('fill',`rgba(${rgb},0.04)`);
+        el.setAttribute('stroke','none');
+      }
+    }
+
+    // 中间三角形着色
+    if(isCenter && centerT>0.01){
+      const rgb=hexRgb(colors.center);
+      // 填充层：用深色底色遮住外框线条
+      rCenterFill.setAttribute('points',pt(scaled.v1,scaled.v3,scaled.v2));
+      rCenterFill.setAttribute('fill',`rgba(22,27,34,${0.6+centerT*0.35})`);
+      rCenterFill.setAttribute('stroke','none');
+      // 描边层
+      rCenter.setAttribute('fill','none');
+      rCenter.setAttribute('stroke',`rgba(${rgb},${0.3+centerT*0.5})`);
+      rCenter.setAttribute('stroke-width', 1+centerT*0.8);
+      // 内三角高亮
+      innerEl.setAttribute('filter','url(#glow)');
+      innerEl.setAttribute('stroke',lerpColor('#58a6ff',colors.center,centerT));
+      innerEl.setAttribute('stroke-width', 1.8+centerT*0.5);
+    } else {
+      rCenterFill.setAttribute('points',pt(m1,m3,m2));
+      rCenterFill.setAttribute('fill','rgba(210,153,34,0.03)');
+      rCenterFill.setAttribute('stroke','none');
+      rCenter.setAttribute('fill','rgba(210,153,34,0.03)');
+      rCenter.setAttribute('stroke','none');
+      const maxOuter=Math.max(topT,leftT,rightT);
+      if(maxOuter>0.01&&active){
+        innerEl.setAttribute('filter','url(#glow)');
+        innerEl.setAttribute('stroke',lerpColor('#58a6ff',colors[active],maxOuter));
+      } else {
+        innerEl.setAttribute('filter','none');
+        innerEl.setAttribute('stroke','#58a6ff');
+      }
+      innerEl.setAttribute('stroke-width','1.8');
+    }
+
+    // 参考线
+    setLn(ref1,CX,CY,A.x,A.y);
+    setLn(ref2,CX,CY,B.x,B.y);
+    setLn(ref3,CX,CY,C.x,C.y);
+
+    // 顶点标记
+    let d='';
+    [A,B,C].forEach(p=>d+=`<circle cx="${p.x}" cy="${p.y}" r="3" fill="#e6edf3"/>`);
+    const dotColor=isCenter&&centerT>0.01?colors.center:
+      (active&&Math.max(topT,leftT,rightT)>0.01?colors[active]:'#58a6ff');
+    if(isCenter&&curScale>1.01){
+      [scaled.v1,scaled.v3,scaled.v2].forEach(p=>
+        d+=`<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="${dotColor}"/>`);
+    } else {
+      [m1,m2,m3].forEach(p=>d+=`<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="${dotColor}"/>`);
+    }
+    d+=`<circle cx="${CX}" cy="${CY}" r="2" fill="#58a6ff" opacity=".5"/>`;
+    dotsG.innerHTML=d;
+
+    // ─── 右侧直角三角形 ───
+    const anyExpanded=Math.max(topT,leftT,rightT)>0.05 || centerT>0.05;
+    const triPoints=pt(P1g,P2g,P3);
+    if(anyExpanded){
+      const showAlpha=Math.min(1, Math.max(topT,leftT,rightT,centerT)*3);
+      rReset.setAttribute('points',triPoints);
+      rResetVis.setAttribute('points',triPoints);
+      rResetVis.setAttribute('fill',`rgba(139,148,158,${0.06*showAlpha})`);
+      rResetVis.setAttribute('stroke',`rgba(139,148,158,${0.5*showAlpha})`);
+      rResetVis.setAttribute('stroke-width','1.2');
+      rResetVis.setAttribute('stroke-linejoin','round');
+      // RESET 标签居中
+      const lx=(P1g.x+P2g.x+P3.x)/3;
+      const ly=(P1g.y+P2g.y+P3.y)/3;
+      resetLabel.setAttribute('x',lx);
+      resetLabel.setAttribute('y',ly+3);
+      resetLabel.setAttribute('fill',`rgba(139,148,158,${0.5*showAlpha})`);
+    } else {
+      rReset.setAttribute('points','');
+      rResetVis.setAttribute('points','');
+      rResetVis.setAttribute('fill','transparent');
+      rResetVis.setAttribute('stroke','none');
+      resetLabel.setAttribute('fill','transparent');
+    }
+
+    // 徽章
+    if(isCenter&&centerT>0.05){
+      badge.textContent=`中间放大 ${(curScale).toFixed(1)}x`;
+      badge.style.background=hexToRgba(colors.center,0.15);
+      badge.style.color=colors.center;
+    } else if(active&&Math.max(topT,leftT,rightT)>0.05){
+      const labels={top:'顶部展开中',left:'左下展开中',right:'右下展开中'};
+      badge.textContent=labels[active];
+      badge.style.background=hexToRgba(colors[active],0.15);
+      badge.style.color=colors[active];
+    } else {
+      badge.textContent='默认状态';
+      badge.style.background='rgba(88,166,255,.1)';
+      badge.style.color='#58a6ff';
+    }
+  }
+
+  function regionProgress(region){
+    const e=expanded[region];
+    const d=dist(curM1,e.m1)+dist(curM2,e.m2)+dist(curM3,e.m3);
+    const dMax=dist(M1d,e.m1)+dist(M2d,e.m2)+dist(M3d,e.m3);
+    return Math.max(0,Math.min(1,1-d/dMax));
+  }
+
+  function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+  function lerp(a,b,t){return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}}
+  function lerpPt(a,b,t){return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}}
+  function dist(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)}
+  function pt(){return Array.from(arguments).map(p=>p.x+','+p.y).join(' ')}
+  function setLn(el,x1,y1,x2,y2){el.setAttribute('x1',x1);el.setAttribute('y1',y1);el.setAttribute('x2',x2);el.setAttribute('y2',y2)}
+  function hexRgb(h){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return`${r},${g},${b}`}
+  function hexToRgba(h,a){return`rgba(${hexRgb(h)},${a})`}
+  function lerpColor(c1,c2,t){
+    const r1=parseInt(c1.slice(1,3),16),g1=parseInt(c1.slice(3,5),16),b1=parseInt(c1.slice(5,7),16);
+    const r2=parseInt(c2.slice(1,3),16),g2=parseInt(c2.slice(3,5),16),b2=parseInt(c2.slice(5,7),16);
+    const r=Math.round(r1+(r2-r1)*t),g=Math.round(g1+(g2-g1)*t),b=Math.round(b1+(b2-b1)*t);
+    return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
